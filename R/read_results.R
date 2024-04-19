@@ -47,17 +47,17 @@ read_known_results <- function(path, homer_dir = TRUE) {
     }
 
     ## Read in raw file
-    col_spec <- readr::cols('c', 'c', 'd', '-', 'd', 'd', 'c', 'd', 'c')
+    col_spec <- readr::cols('c', 'c', 'd', 'd', 'd', 'd', 'c', 'd', 'c')
     raw <- readr::read_tsv(path, col_types = col_spec)
-    colnames(raw) <- c('motif_name', 'consensus',
-                       'log_p_value', 'fdr',
+    colnames(raw) <- c('motif_name', 'consensus', 'p_value',
+                       'log_p_value', 'q_value',
                        'tgt_num', 'tgt_pct', 'bgd_num', 'bgd_pct')
 
     ## Parse down all the combined columns
     tmp <- raw %>%
-        tidyr::separate_("motif_name", c('motif_name', 'experiment', 'database'),
-                         '/', extra = 'drop') %>%
-        mutate_(log_p_value = "-log10(log_p_value)")
+        tidyr::separate("motif_name", c('motif_name', 'experiment', 'database'),
+                             '/', extra = 'drop')
+
     parsed <- .parse_homer_subfields(tmp) %>%
         dplyr::mutate_at(vars(contains('pct')), .parse_pcts)
 
@@ -197,9 +197,9 @@ read_denovo_results <- function(path, homer_dir = TRUE) {
 #' 
 #' @importFrom stringr str_replace str_split str_detect
 #' @importFrom lazyeval interp
-#' @importFrom dplyr vars contains select_ rename_ group_by group_by_ bind_cols
-#' @importFrom dplyr mutate_ mutate_at mutate_all mutate 
-#' @importFrom tidyr separate separate_ nest
+#' @importFrom dplyr vars contains select rename_ group_by group_by_ bind_cols
+#' @importFrom dplyr mutate mutate_at mutate_all mutate 
+#' @importFrom tidyr separate separate nest
 #' @importFrom purrr map
 #' @importFrom readr read_tsv
 #' @export
@@ -219,7 +219,7 @@ read_motif <- function(path) {
     motif_info <- all[gt, 1:3] %>%
         rename_(consensus = 'X1', motif_name = 'X2',
                 log_odds_detection = 'X3') %>%
-        mutate_(consensus = interp(~str_replace(var, '>', ''),
+        mutate(consensus = interp(~str_replace(var, '>', ''),
                                    var = as.name("consensus")))
     
     ## Munge motif PWMs
@@ -232,7 +232,7 @@ read_motif <- function(path) {
         group_by_('motif_id') %>%
         mutate_at(vars('A', 'C', 'G', 'T'), as.numeric) %>%
         nest(.key = 'motif_pwm') %>%
-        select_(interp(~-var, var = as.name('motif_id')))
+        select(interp(~-var, var = as.name('motif_id')))
 
 
     ## Combine PWM + info
@@ -272,7 +272,7 @@ read_motif <- function(path) {
 
     ## Munge motif position statistics
     stats <- motif_info[, 'stats'] %>%
-        separate_('stats',
+        separate('stats',
                   c('tgt_pos', 'tgt_std', 'bgd_pos', 'bgd_std',
                     'strand_bias', 'multiplicity'), ',') %>%
         mutate_all(.drop_prior) %>%
@@ -280,18 +280,18 @@ read_motif <- function(path) {
 
     ## Munge motif occurrence metrics
     occurrence <- motif_info[, 'occurrence'] %>%
-        separate_('occurrence', c('tgt_num', 'bgd_num', 'log_p_value', 'fdr'), ',') %>%
+        separate('occurrence', c('tgt_num', 'bgd_num', 'log_p_value', 'fdr'), ',') %>%
         mutate_all(.drop_prior) %>%
-        separate_('tgt_num', c('tgt_num', 'tgt_pct'), '\\(') %>%
-        separate_('bgd_num', c('bgd_num', 'bgd_pct'), '\\(') %>%
+        separate('tgt_num', c('tgt_num', 'tgt_pct'), '\\(') %>%
+        separate('bgd_num', c('bgd_num', 'bgd_pct'), '\\(') %>%
         mutate_at(vars(contains('_pct')), .format_pct) %>%
         mutate_all(as.numeric) %>%
-        mutate_(log_p_value = "-log10(log_p_value)")
+        mutate(log_p_value = "-log10(log_p_value)")
 
     ## Put it all together
     motif_final <- motif_info %>%
-        select_(interp(~-var, var = as.name('occurrence'))) %>%
-        select_(interp(~-var, var = as.name('stats'))) %>%
+        select(interp(~-var, var = as.name('occurrence'))) %>%
+        select(interp(~-var, var = as.name('stats'))) %>%
         bind_cols(occurrence, stats)
 
     return(motif_final)
@@ -336,7 +336,7 @@ read_motif <- function(path) {
         sum(., na.rm = TRUE) > 0
     if (cond == TRUE) {
         motif_tbl <- motif_tbl %>%
-            tidyr::separate_('motif_name',
+            tidyr::separate('motif_name',
                              c('motif_name', 'experiment', 'database'),
                              '/', extra = "drop", fill = "right")
     }
@@ -347,7 +347,7 @@ read_motif <- function(path) {
         sum(., na.rm = TRUE) > 0
     if (cond == TRUE) {
         motif_tbl <- motif_tbl %>%
-            tidyr::separate_('motif_name',
+            tidyr::separate('motif_name',
                              c('motif_name', 'motif_family'),
                              '\\(', extra = "drop", fill = "right")
         motif_tbl$motif_family <- stringr::str_replace(motif_tbl$motif_family, '\\)', '')
@@ -360,7 +360,7 @@ read_motif <- function(path) {
             sum(., na.rm = TRUE) > 0
         if (cond == TRUE) {
             motif_tbl <- motif_tbl %>%
-                tidyr::separate_('experiment',
+                tidyr::separate('experiment',
                                  c('experiment', 'accession'),
                                  '\\(', extra = "drop", fill = "right")
             motif_tbl$accession <- stringr::str_replace(motif_tbl$accession, '\\)', '')
